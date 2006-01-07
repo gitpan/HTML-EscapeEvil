@@ -1,0 +1,8 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+t/escapeevil.t
+t/escapeevil.html
+lib/HTML/EscapeEvil.pm
+META.yml                                 Module meta-data (added by MakeMaker)

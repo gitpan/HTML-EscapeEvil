@@ -1,0 +1,6 @@
+Revision history for Perl extension HTML::EscapeEvil.
+
+0.01  Sat Jan  7 20:12:39 2006
+	- original version; created by h2xs 1.23 with options
+		-A -X -n HTML::EscapeEvil
+
