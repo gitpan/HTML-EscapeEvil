@@ -2,7 +2,11 @@ Changes
 Makefile.PL
 MANIFEST
 README
-t/escapeevil.t
+t/01_use.t
+t/02_method.t
+t/03_get_allow_deny.t
+t/04_parse.t
+t/05_process.t
 t/escapeevil.html
-lib/HTML/EscapeEvil.pm
+EscapeEvil.pm
 META.yml                                 Module meta-data (added by MakeMaker)

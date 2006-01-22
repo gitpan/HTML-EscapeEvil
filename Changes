@@ -1,5 +1,11 @@
 Revision history for Perl extension HTML::EscapeEvil.
 
+0.02  Sun Jan 22 13:32:38 2006
+	- fixed clear_process
+	- fixed clear_content
+	- add filtered(parse or parse_file + filtered_html or filetered_file + eof + clear_process. do!)
+	- add DESTROY(break circular reference)
+
 0.01  Sat Jan  7 20:12:39 2006
 	- original version; created by h2xs 1.23 with options
 		-A -X -n HTML::EscapeEvil

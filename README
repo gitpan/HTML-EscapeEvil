@@ -1,8 +1,17 @@
 NAME
     HTML::EscapeEvil - Escape tag
 
+INSTALLATION
+
+To install this module type the following:
+
+       perl Makefile.PL
+       make
+       make test
+       make install
+
 VERSION
-    0.01
+    0.02
 
 SYNPSIS
         use HTML::EscapeEvil;
@@ -17,7 +26,7 @@ SYNPSIS
         HTML
 
         $escapeevil->parse($html); #from string
-        $escapeevil->parse_file($html_file); #from file
+        $escapeevil->parse_file($html_file); #from file or file handle
 
         my $clean_html = $escapeevil->filtered_html;
         $escapeevil->clear;
@@ -189,6 +198,21 @@ METHOD
     Example :
 
         $escapeevil->filtered_file("./filtered_file.html");
+
+  filtered
+    version 0.02 new method. parse(parse_file) and
+    filtered_html(filtered_file) and eof,clear_process do.
+
+    Example :
+
+        my $html = "<script type=\"text/javascript\"><!--alert(\"hello!\");//--></script>";
+        (e.g.1)
+        my $cleanhtml = $escapeevil->filtered($html);
+        (e.g.2)
+        $escapeevil->filtered($html,"writefile.html");
+        (e.g.3)
+        open FILE,"< evil.html" or die $!;
+        $escapeevil->filtered(*FILE,"writefile.html");
 
   clear_process
     Collected process is annulled.

@@ -4,12 +4,12 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     NAME              => 'HTML::EscapeEvil',
-    VERSION_FROM      => 'lib/HTML/EscapeEvil.pm', # finds $VERSION
+    VERSION_FROM      => 'EscapeEvil.pm', # finds $VERSION
     PREREQ_PM         => {
 							'Class::Accessor' => 0.19,
 							'HTML::Filter' => 2.10
 						}, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
-      (ABSTRACT_FROM  => 'lib/HTML/EscapeEvil.pm', # retrieve abstract from module
+      (ABSTRACT_FROM  => 'EscapeEvil.pm', # retrieve abstract from module
        AUTHOR         => 'Akira Horimoto <kurt0027@gmail.com>') : ()),
 );

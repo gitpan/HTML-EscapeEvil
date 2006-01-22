@@ -10,7 +10,7 @@ __PACKAGE__->mk_ro_accessors(qw(processes));
 
 BEGIN{
 
-	$VERSION = 0.01;
+	$VERSION = 0.02;
 
 	my @allow_entity_references = ("amp","lt","gt","quot","apos","#039","nbsp","copy","reg");
 	$ENTITY_REGEXP = "&amp;(" . (join "|",@allow_entity_references) . ")(;)";
@@ -26,7 +26,7 @@ sub new{
 		$self->{$_} = ($args{$_}) ? 1 : 0;
 	}
 
-	if($args{allow_entity_reference} ne '' && $args{allow_entity_reference} == 0){
+	if($args{allow_entity_reference} ne "" && $args{allow_entity_reference} == 0){
 		
 		$self->{allow_entity_reference} = 0;
 		
@@ -156,9 +156,41 @@ sub filtered_html{
 sub filtered_file{
 
 	my($self,$path) = @_;
-	open FILE,"> " . $path or die $!;
+	my $fh;
+	#(ref($arg) eq "GLOB" || ref(\$arg) eq "GLOB") ? ($fh = $arg) : (open $fh,"> $arg" or die $!);
+	open FILE,"> $path" or die $!;
 	print FILE $self->filtered_html;
 	close FILE;
+}
+
+sub filtered{
+
+	my $self = shift;
+	my $content;
+	if(-e $_[0] || ref($_[0]) eq "GLOB" || ref(\$_[0]) eq "GLOB"){
+
+		$self->parse_file($_[0]);
+	}elsif($_[0] ne ""){
+
+		$self->parse($_[0]);
+	}else{
+
+		die "content is empty";
+	}
+	
+	if($_[1]){
+
+		$self->filtered_file($_[1]);
+		$content = 1;
+	}else{
+
+		$content = $self->filtered_html;
+	}
+
+	$self->eof;
+	$self->{_current_tag} = undef;
+	
+	return $content;
 }
 
 sub clear{
@@ -173,15 +205,20 @@ sub clear{
 sub clear_content{
 
 	my $self = shift;
-	$self->{_content} = [];
+	$self->{_content} = [] if scalar @{$self->{_content}};
 }
 
 sub clear_process{
 
 	my $self = shift;
-	$self->{processes} = [];
+	$self->{processes} = [] if scalar @{$self->{processes}};
 }
 
+sub DESTROY{
+
+	my $self = shift;
+	$self->clear;
+}
 
 sub _escape{
 
@@ -286,7 +323,7 @@ HTML::EscapeEvil - Escape tag
 
 =head1 VERSION
 
-0.01
+0.02
 
 =head1 SYNPSIS
 
@@ -302,7 +339,7 @@ HTML::EscapeEvil - Escape tag
     HTML
 
     $escapeevil->parse($html); #from string
-    $escapeevil->parse_file($html_file); #from file
+    $escapeevil->parse_file($html_file); #from file or file handle
 
     my $clean_html = $escapeevil->filtered_html;
     $escapeevil->clear;
@@ -485,6 +522,21 @@ HTML that escapes in the tag not permitted is written file.
 Example : 
 
     $escapeevil->filtered_file("./filtered_file.html");
+
+=head2 filtered
+
+version 0.02 new method. parse(parse_file) and filtered_html(filtered_file) and eof,clear_process do.
+
+Example : 
+
+    my $html = "<script type=\"text/javascript\"><!--alert(\"hello!\");//--></script>";
+    (e.g.1)
+    my $cleanhtml = $escapeevil->filtered($html);
+    (e.g.2)
+    $escapeevil->filtered($html,"writefile.html");
+    (e.g.3)
+    open FILE,"< evil.html" or die $!;
+    $escapeevil->filtered(*FILE,"writefile.html");
 
 =head2 clear_process
 
