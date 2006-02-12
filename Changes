@@ -1,5 +1,12 @@
 Revision history for Perl extension HTML::EscapeEvil.
 
+0.03  Sat Feb 10 05:35:29
+    - fixed filtered_file
+    - fixed filtered
+    - fixed start(parsing JS_EVENT.necesity module HTML::Element)
+    - add _croak(private dying method.necessity module Carp)
+    - add global variable %JS_EVENT(javascript allow or deny event handler)
+
 0.02  Sun Jan 22 13:32:38 2006
 	- fixed clear_process
 	- fixed clear_content

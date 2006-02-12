@@ -2,18 +2,44 @@ package HTML::EscapeEvil;
 
 use strict;
 use base qw(HTML::Filter Class::Accessor);
+use HTML::Element;
 
-our($ENTITY_REGEXP,$VERSION);
+our($ENTITY_REGEXP,%JS_EVENT,$VERSION);
 
 __PACKAGE__->mk_accessors(qw(allow_comment allow_declaration allow_process allow_entity_reference allow_script allow_style collection_process));
 __PACKAGE__->mk_ro_accessors(qw(processes));
 
 BEGIN{
 
-	$VERSION = 0.02;
+	$VERSION = 0.03;
 
 	my @allow_entity_references = ("amp","lt","gt","quot","apos","#039","nbsp","copy","reg");
 	$ENTITY_REGEXP = "&amp;(" . (join "|",@allow_entity_references) . ")(;)";
+
+## allow javascript event handler setting
+## cite : javascript in href. e.g. <a href="javascript:alert('hello')">hello</a>
+	%JS_EVENT = (
+				cite			=> 0,
+				onblur			=> 0,
+				onchange		=> 0,
+				onclick			=> 0,
+				ondblclick		=> 0,
+				onerror			=> 0,
+				onfocus			=> 0,
+				onkeydown		=> 0,
+				onkeypress		=> 0,
+				onkeyup			=> 0,
+				onload			=> 0,
+				onmousedown		=> 0,
+				onmousemove		=> 0,
+				onmouseout		=> 0,
+				onmouseover		=> 0,
+				onmouseup		=> 0,
+				onreset			=> 0,
+				onselect		=> 0,
+				onsubmit		=> 0,
+				onunload		=> 0,
+				);
 }
 
 sub new{
@@ -29,11 +55,9 @@ sub new{
 	if($args{allow_entity_reference} ne "" && $args{allow_entity_reference} == 0){
 		
 		$self->{allow_entity_reference} = 0;
-		
 	}else{
 		
 		$self->{allow_entity_reference} = 1;
-
 	}
 	
 	$self->{processes} = [];
@@ -122,11 +146,9 @@ sub is_allow_tags{
 	if($tag eq "script" || $tag eq "style"){
 
 		$flag = $self->{"allow_$tag"};
-	
 	}else{
 
 		$flag = (exists $self->{_allow_tags}->{$tag}) ? 1 : 0;
-		
 	}
 	return ($flag) ? 1 : 0;
 }
@@ -155,12 +177,11 @@ sub filtered_html{
 
 sub filtered_file{
 
-	my($self,$path) = @_;
+	my $self = shift;
 	my $fh;
-	#(ref($arg) eq "GLOB" || ref(\$arg) eq "GLOB") ? ($fh = $arg) : (open $fh,"> $arg" or die $!);
-	open FILE,"> $path" or die $!;
-	print FILE $self->filtered_html;
-	close FILE;
+	(ref($_[0]) eq "GLOB" || ref(\$_[0]) eq "GLOB") ? ($fh = $_[0]) : (open $fh,"> $_[0]" or &_croak($!));
+	print $fh $self->filtered_html;
+	close $fh;
 }
 
 sub filtered{
@@ -175,7 +196,7 @@ sub filtered{
 		$self->parse($_[0]);
 	}else{
 
-		die "content is empty";
+		&_croak("content is empty");
 	}
 	
 	if($_[1]){
@@ -251,8 +272,15 @@ sub _unescape_entities{
 	return $string;
 }
 
+sub _croak{
 
-# -------------------------- override method start ------------------------------- #
+	require Carp;
+	Carp->import;
+	croak(@_);
+}
+
+
+# ============================== override method start ============================== #
 
 sub declaration{
 
@@ -277,7 +305,33 @@ sub start{
 
 	my($self,$tagname,$attr,$attrseq,$text) = @_;
 	$self->{_current_tag} = lc $tagname;
-	$text = &_escape($text) if !$self->is_allow_tags($tagname);
+	if($self->is_allow_tags($tagname)){
+
+		if(!$self->allow_script){
+## change javascript event handler(1 : allow) e.g <body onload="alert(1)"> => <body onload="void(0)">
+			foreach(keys %{$attr}){
+
+				my $event = lc $_;
+				if(exists $JS_EVENT{$event} && !$JS_EVENT{$event}){
+					#delete $attr->{$event};
+					$attr->{$event} = "void(0)";
+				}
+			}
+
+## change javascript <a href="javascript:evil_script('evil')"> => <a href="javascript:void(0)">
+			if(!$JS_EVENT{cite} && $attr->{href} =~ /^(java|vb)script:/i){
+
+				$attr->{href} = "javascript:void(0)";
+			}
+## tag is generated again
+			my $element = HTML::Element->new($tagname,%{$attr});
+			$text = $element->starttag;
+			$element->delete;
+			$element = undef;
+		}
+	}else{
+		$text = &_escape($text) 
+	}
 	$self->SUPER::start($tagname,$attr,$attrseq,$text);
 }
 
@@ -323,7 +377,7 @@ HTML::EscapeEvil - Escape tag
 
 =head1 VERSION
 
-0.02
+0.03
 
 =head1 SYNPSIS
 
@@ -521,7 +575,10 @@ HTML that escapes in the tag not permitted is written file.
 
 Example : 
 
+    (e.g.1)
     $escapeevil->filtered_file("./filtered_file.html");
+    (e.g.2)
+    $escapeevil->filtered_file(*FILEHANDLE);
 
 =head2 filtered
 
@@ -535,8 +592,8 @@ Example :
     (e.g.2)
     $escapeevil->filtered($html,"writefile.html");
     (e.g.3)
-    open FILE,"< evil.html" or die $!;
-    $escapeevil->filtered(*FILE,"writefile.html");
+    open FILEHANDLE,"< evil.html" or die $!;
+    $escapeevil->filtered(*FILEHANDLE,"writefile.html");
 
 =head2 clear_process
 
@@ -554,21 +611,36 @@ Example :
 
     $escapeevil->clear;
 
+=head1 NEW OPTION
+
+VERSION 0.03.Javascript of event handler becomes invalid at allow_script(0) though event handler of javascript is defined in the tag that has been permitted, too. 
+
+Example : 
+
+    <a href="javascript:alert(1234)">hello</a> => <a href="javascript:void(0)">hello</a>
+    <body onload="alert(5678)"> => <body onload="void(0)">
+
+The definition of event handler is described in %HTML::Escape::JS_EVENT.
+
 =head1 CAUTION
 
 Please filtered_file must specify passing the file and specify the correct one. Die is executed when there are neither passing nor a writing authority that cannot be. 
 
 Processes is a method only for reading. When the value is set, die is done. 
 
-HTML::Parser http://search.cpan.org/~gaas/HTML-Parser-3.46/Parser.pm
-
-HTML::Filter http://search.cpan.org/~gaas/HTML-Parser-3.46/lib/HTML/Filter.pm
+Carp http://search.cpan.org/~nwclark/perl-5.8.8/lib/Carp.pm
 
 Class::Accessor http://search.cpan.org/~kasei/Class-Accessor-0.22/lib/Class/Accessor.pm
 
+HTML::Element http://search.cpan.org/~petdance/HTML-Tree-3.1901/lib/HTML/Element.pm
+
+HTML::Filter http://search.cpan.org/~gaas/HTML-Parser-3.46/lib/HTML/Filter.pm
+
+HTML::Parser http://search.cpan.org/~gaas/HTML-Parser-3.46/Parser.pm
+
 =head1 SEE ALSO
 
-L<HTML::Filter> L<HTML::Parser> L<Class::Accessor>
+L<Carp> L<Class::Accessor> L<HTML::Element> L<HTML::Filter> L<HTML::Parser>
 
 =head1 AUTHOR
 

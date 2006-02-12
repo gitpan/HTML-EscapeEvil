@@ -10,10 +10,14 @@ use Test::More tests => 1;
 use strict;
 use warnings;
 
+use HTML::EscapeEvil;
+
 # ==================================================== #
 # 1
-# use HTML::EscapeEvil Check
+# Croak Check
 # ==================================================== #
-use_ok('HTML::EscapeEvil');
-
+eval{
+	HTML::EscapeEvil::_croak("croak test");
+};
+ok($@);
 

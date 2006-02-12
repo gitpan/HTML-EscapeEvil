@@ -1,17 +1,8 @@
 NAME
     HTML::EscapeEvil - Escape tag
 
-INSTALLATION
-
-To install this module type the following:
-
-       perl Makefile.PL
-       make
-       make test
-       make install
-
 VERSION
-    0.02
+    0.03
 
 SYNPSIS
         use HTML::EscapeEvil;
@@ -197,7 +188,10 @@ METHOD
 
     Example :
 
+        (e.g.1)
         $escapeevil->filtered_file("./filtered_file.html");
+        (e.g.2)
+        $escapeevil->filtered_file(*FILEHANDLE);
 
   filtered
     version 0.02 new method. parse(parse_file) and
@@ -211,8 +205,8 @@ METHOD
         (e.g.2)
         $escapeevil->filtered($html,"writefile.html");
         (e.g.3)
-        open FILE,"< evil.html" or die $!;
-        $escapeevil->filtered(*FILE,"writefile.html");
+        open FILEHANDLE,"< evil.html" or die $!;
+        $escapeevil->filtered(*FILEHANDLE,"writefile.html");
 
   clear_process
     Collected process is annulled.
@@ -229,6 +223,18 @@ METHOD
 
         $escapeevil->clear;
 
+NEW OPTION
+    VERSION 0.03.Javascript of event handler becomes invalid at
+    allow_script(0) though event handler of javascript is defined in the tag
+    that has been permitted, too.
+
+    Example :
+
+        <a href="javascript:alert(1234)">hello</a> => <a href="javascript:void(0)">hello</a>
+        <body onload="alert(5678)"> => <body onload="void(0)">
+
+    The definition of event handler is described in %HTML::Escape::JS_EVENT.
+
 CAUTION
     Please filtered_file must specify passing the file and specify the
     correct one. Die is executed when there are neither passing nor a
@@ -237,16 +243,21 @@ CAUTION
     Processes is a method only for reading. When the value is set, die is
     done.
 
-    HTML::Parser http://search.cpan.org/~gaas/HTML-Parser-3.46/Parser.pm
-
-    HTML::Filter
-    http://search.cpan.org/~gaas/HTML-Parser-3.46/lib/HTML/Filter.pm
+    Carp http://search.cpan.org/~nwclark/perl-5.8.8/lib/Carp.pm
 
     Class::Accessor
     http://search.cpan.org/~kasei/Class-Accessor-0.22/lib/Class/Accessor.pm
 
+    HTML::Element
+    http://search.cpan.org/~petdance/HTML-Tree-3.1901/lib/HTML/Element.pm
+
+    HTML::Filter
+    http://search.cpan.org/~gaas/HTML-Parser-3.46/lib/HTML/Filter.pm
+
+    HTML::Parser http://search.cpan.org/~gaas/HTML-Parser-3.46/Parser.pm
+
 SEE ALSO
-    HTML::Filter HTML::Parser Class::Accessor
+    Carp Class::Accessor HTML::Element HTML::Filter HTML::Parser
 
 AUTHOR
     Akira Horimoto <kurt0027@gmail.com>
