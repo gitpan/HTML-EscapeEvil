@@ -3,6 +3,7 @@ package HTML::EscapeEvil;
 use strict;
 use base qw(HTML::Filter Class::Accessor);
 use HTML::Element;
+use Carp;
 
 our($ENTITY_REGEXP,%JS_EVENT,$VERSION);
 
@@ -11,13 +12,15 @@ __PACKAGE__->mk_ro_accessors(qw(processes));
 
 BEGIN{
 
-	$VERSION = 0.03;
+	$VERSION = 0.04;
 
 	my @allow_entity_references = ("amp","lt","gt","quot","apos","#039","nbsp","copy","reg");
 	$ENTITY_REGEXP = "&amp;(" . (join "|",@allow_entity_references) . ")(;)";
 
-## allow javascript event handler setting
-## cite : javascript in href. e.g. <a href="javascript:alert('hello')">hello</a>
+# ============================================================================= #
+# allow javascript event handler setting
+# cite : javascript in href. e.g. <a href="javascript:alert('hello')">hello</a>
+# ============================================================================= #
 	%JS_EVENT = (
 				cite			=> 0,
 				onblur			=> 0,
@@ -179,7 +182,7 @@ sub filtered_file{
 
 	my $self = shift;
 	my $fh;
-	(ref($_[0]) eq "GLOB" || ref(\$_[0]) eq "GLOB") ? ($fh = $_[0]) : (open $fh,"> $_[0]" or &_croak($!));
+	(ref($_[0]) eq "GLOB" || ref(\$_[0]) eq "GLOB") ? ($fh = $_[0]) : (open $fh,"> $_[0]" or croak($!));
 	print $fh $self->filtered_html;
 	close $fh;
 }
@@ -196,7 +199,7 @@ sub filtered{
 		$self->parse($_[0]);
 	}else{
 
-		&_croak("content is empty");
+		croak("content is empty");
 	}
 	
 	if($_[1]){
@@ -268,15 +271,7 @@ sub _unescape_entities{
 
 	my $string = shift;
 	$string =~ s/$ENTITY_REGEXP/\&$1$2/g;
-	#print $string;
 	return $string;
-}
-
-sub _croak{
-
-	require Carp;
-	Carp->import;
-	croak(@_);
 }
 
 
@@ -377,7 +372,7 @@ HTML::EscapeEvil - Escape tag
 
 =head1 VERSION
 
-0.03
+0.04
 
 =head1 SYNPSIS
 

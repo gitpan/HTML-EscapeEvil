@@ -2,7 +2,7 @@ NAME
     HTML::EscapeEvil - Escape tag
 
 VERSION
-    0.03
+    0.04
 
 SYNPSIS
         use HTML::EscapeEvil;
