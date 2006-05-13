@@ -5,362 +5,381 @@ use base qw(HTML::Filter Class::Accessor);
 use HTML::Element;
 use Carp;
 
-our($ENTITY_REGEXP,%JS_EVENT,$VERSION);
+our ( $ENTITY_REGEXP, %JS_EVENT, $VERSION );
 
-__PACKAGE__->mk_accessors(qw(allow_comment allow_declaration allow_process allow_entity_reference allow_script allow_style collection_process));
+__PACKAGE__->mk_accessors(
+    qw(allow_comment allow_declaration allow_process allow_entity_reference allow_script allow_style collection_process)
+);
 __PACKAGE__->mk_ro_accessors(qw(processes));
 
-BEGIN{
+BEGIN {
 
-	$VERSION = 0.04;
+    $VERSION = 0.05;
 
-	my @allow_entity_references = ("amp","lt","gt","quot","apos","#039","nbsp","copy","reg");
-	$ENTITY_REGEXP = "&amp;(" . (join "|",@allow_entity_references) . ")(;)";
+    my @allow_entity_references =
+      ( "amp", "lt", "gt", "quot", "apos", "#039", "nbsp", "copy", "reg" );
+    $ENTITY_REGEXP = "&amp;(" . ( join "|", @allow_entity_references ) . ")(;)";
 
 # ============================================================================= #
 # allow javascript event handler setting
 # cite : javascript in href. e.g. <a href="javascript:alert('hello')">hello</a>
 # ============================================================================= #
-	%JS_EVENT = (
-				cite			=> 0,
-				onblur			=> 0,
-				onchange		=> 0,
-				onclick			=> 0,
-				ondblclick		=> 0,
-				onerror			=> 0,
-				onfocus			=> 0,
-				onkeydown		=> 0,
-				onkeypress		=> 0,
-				onkeyup			=> 0,
-				onload			=> 0,
-				onmousedown		=> 0,
-				onmousemove		=> 0,
-				onmouseout		=> 0,
-				onmouseover		=> 0,
-				onmouseup		=> 0,
-				onreset			=> 0,
-				onselect		=> 0,
-				onsubmit		=> 0,
-				onunload		=> 0,
-				);
+    %JS_EVENT = (
+        cite        => 0,
+        onblur      => 0,
+        onchange    => 0,
+        onclick     => 0,
+        ondblclick  => 0,
+        onerror     => 0,
+        onfocus     => 0,
+        onkeydown   => 0,
+        onkeypress  => 0,
+        onkeyup     => 0,
+        onload      => 0,
+        onmousedown => 0,
+        onmousemove => 0,
+        onmouseout  => 0,
+        onmouseover => 0,
+        onmouseup   => 0,
+        onreset     => 0,
+        onselect    => 0,
+        onsubmit    => 0,
+        onunload    => 0,
+    );
 }
 
-sub new{
+sub new {
 
-	my($class,%args) = @_;
-	my $self = $class->SUPER::new;
+    my ( $class, %args ) = @_;
+    my $self = $class->SUPER::new;
 
-	foreach(qw(allow_comment allow_declaration allow_process allow_style allow_script collection_process)){
+    foreach (
+        qw(allow_comment allow_declaration allow_process allow_style allow_script collection_process)
+      )
+    {
 
-		$self->{$_} = ($args{$_}) ? 1 : 0;
-	}
+        $self->{$_} = ( $args{$_} ) ? 1 : 0;
+    }
 
-	if($args{allow_entity_reference} ne "" && $args{allow_entity_reference} == 0){
-		
-		$self->{allow_entity_reference} = 0;
-	}else{
-		
-		$self->{allow_entity_reference} = 1;
-	}
-	
-	$self->{processes} = [];
+    if (   $args{allow_entity_reference} ne ""
+        && $args{allow_entity_reference} == 0 )
+    {
 
-	$self->{_content} = [];
-	$self->{_allow_tags} = {};
+        $self->{allow_entity_reference} = 0;
+    }
+    else {
 
-	bless $self,ref $class || $class;
-	
-	if($args{allow_tags}){
+        $self->{allow_entity_reference} = 1;
+    }
 
-		$self->add_allow_tags(
-								(ref($args{allow_tags}) eq "ARRAY") ? @{$args{allow_tags}} : $args{allow_tags}
-							);
-	}
+    $self->{processes} = [];
 
-	return $self;
+    $self->{_content}    = [];
+    $self->{_allow_tags} = {};
+
+    bless $self, ref $class || $class;
+
+    if ( $args{allow_tags} ) {
+
+        $self->add_allow_tags( ( ref( $args{allow_tags} ) eq "ARRAY" )
+            ? @{ $args{allow_tags} }
+            : $args{allow_tags} );
+    }
+
+    return $self;
 }
 
+sub set_allow_tags {
 
-sub set_allow_tags{
+    my $self = shift;
+    $self->{_allow_tags}  = {};
+    $self->{_current_tag} = undef;
 
-	my $self = shift;
-	$self->{_allow_tags} = {};
-	$self->{_current_tag} = undef;
+    $self->{allow_script}           = 0;
+    $self->{allow_style}            = 0;
+    $self->{allow_comment}          = 0;
+    $self->{allow_declaration}      = 0;
+    $self->{allow_process}          = 0;
+    $self->{allow_entity_reference} = 1;
+    $self->{collection_process}     = 0;
 
-	$self->{allow_script} = 0;
-	$self->{allow_style} = 0;
-	$self->{allow_comment} = 0;
-	$self->{allow_declaration} = 0;
-	$self->{allow_process} = 0;
-	$self->{allow_entity_reference} = 1;
-	$self->{collection_process} = 0;
-
-	$self->clear_content;
-	$self->clear_process;
-	$self->add_allow_tags(@_);
+    $self->clear_content;
+    $self->clear_process;
+    $self->add_allow_tags(@_);
 }
 
-sub add_allow_tags{
+sub add_allow_tags {
 
-	my($self,@tags) = @_;
-	foreach my $tag(@tags){
+    my ( $self, @tags ) = @_;
+    foreach my $tag (@tags) {
 
-		$tag = lc $tag;
-		if($tag eq "script" || $tag eq "style"){
+        $tag = lc $tag;
+        if ( $tag eq "script" || $tag eq "style" ) {
 
-			$self->{"allow_$tag"} = 1;
-			next;
-		}
-		$self->{_allow_tags}->{$tag} = 1;
-	}
+            $self->{"allow_$tag"} = 1;
+            next;
+        }
+        $self->{_allow_tags}->{$tag} = 1;
+    }
 
 }
 
-sub deny_tags{
+sub deny_tags {
 
-	my($self,@tags) = @_;
-	foreach my $tag(@tags){
+    my ( $self, @tags ) = @_;
+    foreach my $tag (@tags) {
 
-		$tag = lc $tag;
-		if($tag eq "script" || $tag eq "style"){
+        $tag = lc $tag;
+        if ( $tag eq "script" || $tag eq "style" ) {
 
-			$self->{"allow_$tag"} = 0;
-			next;
-		}
-		delete $self->{_allow_tags}->{$tag};
-	}
+            $self->{"allow_$tag"} = 0;
+            next;
+        }
+        delete $self->{_allow_tags}->{$tag};
+    }
 }
 
+sub get_allow_tags {
 
-sub get_allow_tags{
-
-	my $self = shift;
-	my @tags = keys %{$self->{_allow_tags}};
-	push @tags,"script" if $self->{allow_script};
-	push @tags,"style" if $self->{allow_style};
-	return sort {$a cmp $b} @tags;
+    my $self = shift;
+    my @tags = keys %{ $self->{_allow_tags} };
+    push @tags, "script" if $self->{allow_script};
+    push @tags, "style"  if $self->{allow_style};
+    return sort { $a cmp $b } @tags;
 }
 
-sub is_allow_tags{
+sub is_allow_tags {
 
-	my($self,$tag) = @_;
-	my $flag;
-	$tag = lc $tag;
-	if($tag eq "script" || $tag eq "style"){
+    my ( $self, $tag ) = @_;
+    my $flag;
+    $tag = lc $tag;
+    if ( $tag eq "script" || $tag eq "style" ) {
 
-		$flag = $self->{"allow_$tag"};
-	}else{
+        $flag = $self->{"allow_$tag"};
+    }
+    else {
 
-		$flag = (exists $self->{_allow_tags}->{$tag}) ? 1 : 0;
-	}
-	return ($flag) ? 1 : 0;
+        $flag = ( exists $self->{_allow_tags}->{$tag} ) ? 1 : 0;
+    }
+    return ($flag) ? 1 : 0;
 }
 
+sub deny_all {
 
-sub deny_all{
-
-	my $self = shift;
-	$self->{_allow_tags} = {};
-	$self->{_current_tag} = undef;
-	$self->{allow_script} = 0;
-	$self->{allow_style} = 0;
-	$self->{allow_comment} = 0;
-	$self->{allow_declaration} = 0;
-	$self->{allow_process} = 0;
-	$self->{allow_entity_reference} = 0;
+    my $self = shift;
+    $self->{_allow_tags}            = {};
+    $self->{_current_tag}           = undef;
+    $self->{allow_script}           = 0;
+    $self->{allow_style}            = 0;
+    $self->{allow_comment}          = 0;
+    $self->{allow_declaration}      = 0;
+    $self->{allow_process}          = 0;
+    $self->{allow_entity_reference} = 0;
 }
 
-sub filtered_html{
+sub filtered_html {
 
-	my $self = shift;
-	my $content = join "",@{$self->{_content}};
-	$self->clear_content;
-	return $content;
+    my $self = shift;
+    my $content = join "", @{ $self->{_content} };
+    $self->clear_content;
+    return $content;
 }
 
-sub filtered_file{
+sub filtered_file {
 
-	my $self = shift;
-	my $fh;
-	(ref($_[0]) eq "GLOB" || ref(\$_[0]) eq "GLOB") ? ($fh = $_[0]) : (open $fh,"> $_[0]" or croak($!));
-	print $fh $self->filtered_html;
-	close $fh;
+    my $self = shift;
+    my $fh;
+    ( ref( $_[0] ) eq "GLOB" || ref( \$_[0] ) eq "GLOB" )
+      ? ( $fh = $_[0] )
+      : ( open $fh, "> $_[0]" or croak($!) );
+    print $fh $self->filtered_html;
+    close $fh;
 }
 
-sub filtered{
+sub filtered {
 
-	my $self = shift;
-	my $content;
-	if(-e $_[0] || ref($_[0]) eq "GLOB" || ref(\$_[0]) eq "GLOB"){
+    my $self = shift;
+    my $content;
+    if ( -e $_[0] || ref( $_[0] ) eq "GLOB" || ref( \$_[0] ) eq "GLOB" ) {
 
-		$self->parse_file($_[0]);
-	}elsif($_[0] ne ""){
+        $self->parse_file( $_[0] );
+    }
+    elsif ( $_[0] ne "" ) {
 
-		$self->parse($_[0]);
-	}else{
+        $self->parse( $_[0] );
+    }
+    else {
 
-		croak("content is empty");
-	}
-	
-	if($_[1]){
+        croak("content is empty");
+    }
 
-		$self->filtered_file($_[1]);
-		$content = 1;
-	}else{
+    if ( $_[1] ) {
 
-		$content = $self->filtered_html;
-	}
+        $self->filtered_file( $_[1] );
+        $content = 1;
+    }
+    else {
 
-	$self->eof;
-	$self->{_current_tag} = undef;
-	
-	return $content;
+        $content = $self->filtered_html;
+    }
+
+    $self->eof;
+    $self->{_current_tag} = undef;
+
+    return $content;
 }
 
-sub clear{
+sub clear {
 
-	my $self = shift;
-	$self->eof;
-	$self->clear_process;
-	$self->clear_content;
-	$self->{_current_tag} = undef;
+    my $self = shift;
+    $self->eof;
+    $self->clear_process;
+    $self->clear_content;
+    $self->{_current_tag} = undef;
 }
 
-sub clear_content{
+sub clear_content {
 
-	my $self = shift;
-	$self->{_content} = [] if scalar @{$self->{_content}};
+    my $self = shift;
+    $self->{_content} = [] if scalar @{ $self->{_content} };
 }
 
-sub clear_process{
+sub clear_process {
 
-	my $self = shift;
-	$self->{processes} = [] if scalar @{$self->{processes}};
+    my $self = shift;
+    $self->{processes} = [] if scalar @{ $self->{processes} };
 }
 
-sub DESTROY{
+sub DESTROY {
 
-	my $self = shift;
-	$self->clear;
+    my $self = shift;
+    $self->clear;
 }
 
-sub _escape{
+sub _escape {
 
-	my $string = shift;
-	$string =~ s/&/&amp;/g;
-	$string =~ s/</&lt;/g;
-	$string =~ s/>/&gt;/g;
-	$string =~ s/\"/&quot;/g;
-	$string =~ s/\'/&#039;/g;
-	return $string;
+    my $string = shift;
+    $string =~ s/&/&amp;/g;
+    $string =~ s/</&lt;/g;
+    $string =~ s/>/&gt;/g;
+    $string =~ s/\"/&quot;/g;
+    $string =~ s/\'/&#039;/g;
+    return $string;
 }
 
-sub _unescape{
+sub _unescape {
 
-	my $string = shift;
-	$string =~ s/&amp;/&/g;
-	$string =~ s/&lt;/</g;
-	$string =~ s/&gt;/>/g;
-	$string =~ s/&quot;/\"/g;
-	$string =~ s/&#039;/\'/g;
-	$string =~ s/&apos;/\'/g;
-	return $string;
+    my $string = shift;
+    $string =~ s/&amp;/&/g;
+    $string =~ s/&lt;/</g;
+    $string =~ s/&gt;/>/g;
+    $string =~ s/&quot;/\"/g;
+    $string =~ s/&#039;/\'/g;
+    $string =~ s/&apos;/\'/g;
+    return $string;
 }
 
-sub _unescape_entities{
+sub _unescape_entities {
 
-	my $string = shift;
-	$string =~ s/$ENTITY_REGEXP/\&$1$2/g;
-	return $string;
+    my $string = shift;
+    $string =~ s/$ENTITY_REGEXP/\&$1$2/g;
+    return $string;
 }
-
 
 # ============================== override method start ============================== #
 
-sub declaration{
+sub declaration {
 
-	my($self,$declaration) = @_;
-	$declaration = "<!$declaration>";
-	$self->output(($self->{allow_declaration}) ? $declaration : &_escape($declaration));
+    my ( $self, $declaration ) = @_;
+    $declaration = "<!$declaration>";
+    $self->output( ( $self->{allow_declaration} )
+        ? $declaration
+        : &_escape($declaration) );
 }
 
-sub process{
+sub process {
 
-	my($self,$process,$process_text) = @_;
-	if($self->{collection_process}){
+    my ( $self, $process, $process_text ) = @_;
+    if ( $self->{collection_process} ) {
 
-		my $tmp_process = $process;
-		$tmp_process =~ s/\?$//;
-		push @{$self->{processes}},$tmp_process;
-	}
-	$self->SUPER::process($process,($self->{allow_process}) ? $process_text : &_escape($process_text));
+        my $tmp_process = $process;
+        $tmp_process =~ s/\?$//;
+        push @{ $self->{processes} }, $tmp_process;
+    }
+    $self->SUPER::process( $process,
+        ( $self->{allow_process} ) ? $process_text : &_escape($process_text) );
 }
 
-sub start{
+sub start {
 
-	my($self,$tagname,$attr,$attrseq,$text) = @_;
-	$self->{_current_tag} = lc $tagname;
-	if($self->is_allow_tags($tagname)){
+    my ( $self, $tagname, $attr, $attrseq, $text ) = @_;
+    $self->{_current_tag} = lc $tagname;
+    if ( $self->is_allow_tags($tagname) ) {
 
-		if(!$self->allow_script){
+        if ( !$self->allow_script ) {
 ## change javascript event handler(1 : allow) e.g <body onload="alert(1)"> => <body onload="void(0)">
-			foreach(keys %{$attr}){
+            foreach ( keys %{$attr} ) {
 
-				my $event = lc $_;
-				if(exists $JS_EVENT{$event} && !$JS_EVENT{$event}){
-					#delete $attr->{$event};
-					$attr->{$event} = "void(0)";
-				}
-			}
+                my $event = lc $_;
+                if ( exists $JS_EVENT{$event} && !$JS_EVENT{$event} ) {
+
+                    #delete $attr->{$event};
+                    $attr->{$event} = "void(0)";
+                }
+            }
 
 ## change javascript <a href="javascript:evil_script('evil')"> => <a href="javascript:void(0)">
-			if(!$JS_EVENT{cite} && $attr->{href} =~ /^(java|vb)script:/i){
+            if ( !$JS_EVENT{cite} && $attr->{href} =~ /^(java|vb)script:/i ) {
 
-				$attr->{href} = "javascript:void(0)";
-			}
+                $attr->{href} = "javascript:void(0)";
+            }
 ## tag is generated again
-			my $element = HTML::Element->new($tagname,%{$attr});
-			$text = $element->starttag;
-			$element->delete;
-			$element = undef;
-		}
-	}else{
-		$text = &_escape($text) 
-	}
-	$self->SUPER::start($tagname,$attr,$attrseq,$text);
+            my $element = HTML::Element->new( $tagname, %{$attr} );
+            $text = $element->starttag;
+            $element->delete;
+            $element = undef;
+        }
+    }
+    else {
+        $text = &_escape($text);
+    }
+    $self->SUPER::start( $tagname, $attr, $attrseq, $text );
 }
 
-sub end{
+sub end {
 
-	my($self,$tagname,$text) = @_;
-	$self->{_current_tag} = undef;
-	$text = &_escape($text) if !$self->is_allow_tags($tagname);
-	$self->SUPER::end($tagname,$text);
+    my ( $self, $tagname, $text ) = @_;
+    $self->{_current_tag} = undef;
+    $text = &_escape($text) if !$self->is_allow_tags($tagname);
+    $self->SUPER::end( $tagname, $text );
 }
 
-sub comment{
+sub comment {
 
-	my($self,$comment) = @_;
-	$comment = "<!--$comment-->";
-	$self->output(($self->{allow_comment}) ? $comment : &_escape($comment));
+    my ( $self, $comment ) = @_;
+    $comment = "<!--$comment-->";
+    $self->output( ( $self->{allow_comment} ) ? $comment : &_escape($comment) );
 }
 
-sub text{
+sub text {
 
-	my($self,$text,$is_cdata) = @_;
-	$text = &_escape($text);
-	$text = &_unescape_entities($text) if $self->{allow_entity_reference};
-	$text = &_unescape($text) if $is_cdata && $self->{_current_tag} eq "script" && $self->{allow_script};
-	$text = &_unescape($text) if $is_cdata && $self->{_current_tag} eq "style" && $self->{allow_style};
-	$self->SUPER::text($text,$is_cdata);
+    my ( $self, $text, $is_cdata ) = @_;
+    $text = &_escape($text);
+    $text = &_unescape_entities($text) if $self->{allow_entity_reference};
+    $text = &_unescape($text)
+      if $is_cdata
+      && $self->{_current_tag} eq "script"
+      && $self->{allow_script};
+    $text = &_unescape($text)
+      if $is_cdata && $self->{_current_tag} eq "style" && $self->{allow_style};
+    $self->SUPER::text( $text, $is_cdata );
 }
 
-sub output{
+sub output {
 
-	my($self,$content) = @_;
-	push @{$self->{_content}},$content;
+    my ( $self, $content ) = @_;
+    push @{ $self->{_content} }, $content;
 }
-
 
 1;
 
@@ -372,7 +391,7 @@ HTML::EscapeEvil - Escape tag
 
 =head1 VERSION
 
-0.04
+0.05
 
 =head1 SYNPSIS
 

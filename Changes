@@ -1,5 +1,8 @@
 Revision history for Perl extension HTML::EscapeEvil.
 
+0.05 Sun May 13 14:04:03
+    - execute perltidy
+
 0.04 Sat Mar 4 14:17:44 2006
     - drop _croak
 	- drop t/06_croak.t
